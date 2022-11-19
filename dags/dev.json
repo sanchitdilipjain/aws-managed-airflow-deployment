@@ -1,7 +1,7 @@
 {
   "config": {
     "glue_db": "gluedatalakedb-czs6r9euj9xf",
-    "s3bucket": "airflow-deployment-environmentbucket-w9whth9zl0c3",
+    "s3_bucket": "airflow-deployment-environmentbucket-w9whth9zl0c3",
     "region": "us-east-1"
   }
 }
