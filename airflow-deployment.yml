@@ -329,8 +329,15 @@ Resources:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
-            Action: "*"
-            Resource: "*"
+            Action:
+              - athena:*
+              - glue:*
+              - s3:*
+              - dynamodb:*
+              - sqs:*
+              - kms:*
+              - logs:*
+            Resource: '*'
           
 Outputs:
   VPC:
