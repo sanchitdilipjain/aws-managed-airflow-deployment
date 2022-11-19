@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Glue ETL Job for exporting DynamoDB table to S3
+
+Parameters:
+  TableName:
+    Description: DynamoDB table to export
+    Type: String
+    Default: test_table
+
+  TableThroughputReadPercent:
+    Description: Max read percent that the job can occupy
+    Type: Number
+    Default: 0.25
+
+  AllocatedCapacity:
+    Description: Number of allocated workers.
+    Type: Number
+    Default: 1
+
+  Timeout:
+    Description: Job timeout in minutes.
+    Type: Number
+    Default: 20
+
+  S3BucketName:
+    Description: S3 Data Bucket Name 
+    Type: String
+    Default: data-lake.us-east-1.902135810183 
+
+Resources:
+  TestDynamodbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: key
+          KeyType: HASH
+
+  GlueDataLakeDb:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Description: Data lake Glue catalog
+
+  TestTable:
+    Type: AWS::Glue::Table
+    Properties:
+      DatabaseName: !Ref GlueDataLakeDb
+      CatalogId: !Ref AWS::AccountId
+      TableInput:
+        Name: !Ref TableName
+        Parameters: { classification: parquet }
+        TableType: EXTERNAL_TABLE
+        PartitionKeys:
+          - { Name: snapshot_ts, Type: string }
+        StorageDescriptor:
+          Location:
+            Fn::Sub:
+              - s3://${DataLakeBucket}/${TableName}
+              - DataLakeBucket: !Ref S3BucketName
+          InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe
+          Columns:
+            - { Name: key, Type: string }
+
+  GlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Glue Job service role which allows reading from DynamoDB table and writing to Data lake
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: glue-export-job
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Scan
+                Resource: !GetAtt TestDynamodbTable.Arn
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource: "*"
+
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub dynamodb-to-s3-export
+      GlueVersion: 2.0
+      Role: !GetAtt GlueRole.Arn
+      Command:
+        Name: glueetl
+        ScriptLocation: 
+            Fn::Sub:
+              - s3://${DataLakeBucket}/glue-etl/dynamodb-export-script.py
+              - DataLakeBucket: !Ref S3BucketName
+        PythonVersion: 3
+      DefaultArguments:
+        "--table_name": !Ref TestDynamodbTable
+        "--s3_location":
+          Fn::Sub:
+            - s3://${DataLakeBucket}/${TableName}
+            - DataLakeBucket: !Ref S3BucketName
+              TableName: !Ref TableName
+        "--table_throughput_read_percent": !Ref TableThroughputReadPercent
+        "--workers": !Ref AllocatedCapacity
+        "--enable-metrics": ''
+      AllocatedCapacity: !Ref AllocatedCapacity
+      Timeout: !Ref Timeout
