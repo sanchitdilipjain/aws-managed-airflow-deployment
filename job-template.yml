@@ -117,7 +117,7 @@ Resources:
         Name: glueetl
         ScriptLocation: 
             Fn::Sub:
-              - s3://${DataLakeBucket}/glue-etl/dynamodb-export-script.py
+              - s3://${DataLakeBucket}/glue-etl-code/dynamodb-export-script.py
               - DataLakeBucket: !Ref S3BucketName
         PythonVersion: 3
       DefaultArguments:
