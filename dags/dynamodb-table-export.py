@@ -4,8 +4,8 @@ from airflow import DAG
 from airflow.models import Variable
 from airflow.utils.dates import days_ago
 
-from airflow.providers.amazon.aws.operators.athena import AWSAthenaOperator
-from airflow.providers.amazon.aws.operators.glue import AwsGlueJobOperator
+from airflow.providers.amazon.aws.operators.athena import AthenaOperator
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 
 default_args = {
     "owner": "sanchit",
@@ -20,7 +20,7 @@ table = "test_table"
 
 
 # TODO: Move to plugins
-class TemplatedArgsGlueOperator(AwsGlueJobOperator):
+class TemplatedArgsGlueOperator(GlueJobOperator):
     template_fields = ("script_args",)
 
 
@@ -43,7 +43,7 @@ with DAG(
         script_args={"--snapshot_ts": "{{ execution_date.int_timestamp }}"},
     )
 
-    add_new_partition = AWSAthenaOperator(
+    add_new_partition = AthenaOperator(
         task_id="add_new_partition",
         query="""
           ALTER TABLE {{ params.table }} ADD PARTITION (snapshot_ts = '{{ execution_date.int_timestamp }}')
@@ -53,7 +53,7 @@ with DAG(
         output_location="{{ params.athena_output_location}}",
     )
 
-    update_latest_view = AWSAthenaOperator(
+    update_latest_view = AthenaOperator(
         task_id="update_latest_view",
         query="""
           CREATE OR REPLACE VIEW {{ params.table }}_latest AS
