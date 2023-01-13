@@ -253,7 +253,7 @@ Resources:
 
   MwaaEnvironment:
     Type: AWS::MWAA::Environment
-    DependsOn: MwaaExecutionPolicy
+    DependsOn: MwaaExecutionRole
     Properties:
       Name: !Sub "${AWS::StackName}-MwaaEnvironment"
       SourceBucketArn: !GetAtt EnvironmentBucket.Arn
@@ -318,26 +318,8 @@ Resources:
             Action:
              - "sts:AssumeRole"
       Path: "/service-role/"
-
-  MwaaExecutionPolicy:
-    DependsOn: EnvironmentBucket
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      Roles:
-        - !Ref MwaaExecutionRole
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - athena:*
-              - glue:*
-              - s3:*
-              - dynamodb:*
-              - sqs:*
-              - kms:*
-              - logs:*
-            Resource: '*'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
           
 Outputs:
   VPC:
